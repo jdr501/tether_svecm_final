@@ -95,7 +95,7 @@ class Initializes:
         self.e_0_0 = np.ones([self.regimes, ])
         self.p = np.ones([self.regimes, self.regimes, 1]) / self.regimes
         print('--------')
-        print(self.p.shape)
+        print(self.p)
         sigmas = []
         for regime in range(self.regimes):
             if regime == 0:
