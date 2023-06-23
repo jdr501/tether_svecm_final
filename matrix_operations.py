@@ -26,7 +26,9 @@ def vec_matrix(vec, r=None, c=None):
     return vec.reshape(-1, 1).reshape(c, r).T
 
 
-def resid(dy_t, z_t, theta, ik):
+def resid(dy_t, z_t, theta, ik=None):
+    if ik is None:
+        ik = np.identity(dy_t.shape[0])
     u_hat = np.zeros(dy_t.shape)
     for i in range(dy_t.shape[1]):
         z = z_t[:, [i]]

@@ -14,6 +14,11 @@ class Initializes:
         :param b0: Random number  matrix to add to initial b_hat estimate
         :return: initial parameters
         """
+        self.u_hat = None
+        self.sigmas = None
+        self.p = None
+        self.e_0_0 = None
+        self.lamda_m = None
         self.initial_b = None
         self.initial_theta_hat = None
         self.k = None
@@ -70,18 +75,39 @@ class Initializes:
         denominator = np.linalg.pinv(denominator)
 
         self.initial_theta_hat = denominator @ numerator
+        print(f'this is parameters:{self.initial_theta_hat}')
 
     def initial_b_matrix(self):
         identity_k = np.identity(self.k)
-        u_hat = mo.resid(self.delta_y_t, self.z_t_1, self.initial_theta_hat, identity_k)
+        self.u_hat = mo.resid(self.delta_y_t, self.z_t_1, self.initial_theta_hat, identity_k)
 
         u_sum = np.zeros([self.k, self.k])
-        for i in range(u_hat.shape[1]):
-            u_sum += u_hat[:, [i]] @ u_hat[:, [i]].T
-        b = 1/self.t * u_sum
+        for i in range(self.u_hat.shape[1]):
+            u_sum += self.u_hat[:, [i]] @ self.u_hat[:, [i]].T
+        b = 1 / self.t * u_sum
 
         b = vecm._mat_sqrt(b)
         b2 = sp.linalg.sqrtm(b) + + self.b0
         self.initial_b = b + self.b0
-        print(self.initial_b)
-        print(b2)
+
+    def other_initial_params(self):
+        self.lamda_m = np.identity(self.k)
+        self.e_0_0 = np.ones([self.regimes, ])
+        self.p = np.ones([self.regimes, self.regimes, 1]) / self.regimes
+        print('--------')
+        print(self.p.shape)
+        sigmas = []
+        for regime in range(self.regimes):
+            if regime == 0:
+                sigmas.append(self.initial_b @ self.initial_b.T)
+            else:
+                sigmas.append(self.initial_b @ self.lamda_m @ self.initial_b.T)
+        self.sigmas = sigmas
+
+    def run_initialization(self):
+        self.data_matrix()
+        self.initial_params()
+        self.initial_b_matrix()
+        self.other_initial_params()
+
+
