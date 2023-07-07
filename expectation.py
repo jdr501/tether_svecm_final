@@ -3,100 +3,78 @@ import matrix_operations as mo
 from statsmodels.tsa.regime_switching import markov_switching as ms
 
 
-def py_kim_smoother(regime_transition, predicted_joint_probabilities, filtered_joint_probabilities):
+def hamilton(eta, p_hat, initial_value):
     """
-    Kim smoother using pure Python
-
-    Parameters
-    ----------
-    regime_transition : array
-        Matrix of regime transition probabilities, shaped either
-        (k_regimes, k_regimes, 1) or if there are time-varying transition
-        probabilities (k_regimes, k_regimes, nobs).
-    predicted_joint_probabilities : array
-        Array containing Pr[S_t=s_t, ..., S_{t-order}=s_{t-order} | Y_{t-1}] -
-        the joint probability of the current and previous `order` periods
-        being in each combination of regimes conditional on time t-1
-        information. Shaped (k_regimes,) * (order + 1) + (nobs,).
-    filtered_joint_probabilities : array
-        Array containing Pr[S_t=s_t, ..., S_{t-order}=s_{t-order} | Y_{t}] -
-        the joint probability of the current and previous `order` periods
-        being in each combination of regimes conditional on time t
-        information. Shaped (k_regimes,) * (order + 1) + (nobs,).
-
-    Returns
-    -------
-    smoothed_joint_probabilities : array
-        Array containing Pr[S_t=s_t, ..., S_{t-order}=s_{t-order} | Y_T] -
-        the joint probability of the current and previous `order` periods
-        being in each combination of regimes conditional on all information.
-        Shaped (k_regimes,) * (order + 1) + (nobs,).
-    smoothed_marginal_probabilities : array
-        Array containing Pr[S_t=s_t | Y_T] - the probability of being in each
-        regime conditional on all information. Shaped (k_regimes, nobs).
+    :param eta: marginal density t= 1,...,T
+    :param p_hat: transition probability matrix
+    :param initial_value: initial eta_0_0
+    :return:
+    optimal inference
+    optimal forecast
     """
+    # creating empty array for to save values
+    regimes = eta.shape[0]
+    t_dimension = eta.shape[1] + 1  # note that eta is from 1...T but epsilons runs from 0...T
+    epsilon_t_t_1 = np.zeros([regimes, t_dimension])
+    epsilon_t_t = np.zeros([regimes, t_dimension])
+    epsilon_t_t[:, [0]] = initial_value
+    # iteration from t = 1,..., T
+    for t in range(1, t_dimension):
+        # print(epsilon_t_t[:, [t - 1]])
+        eps = p_hat @ epsilon_t_t[:, [t - 1]]
+        # print(f'this is eps: {eps}for period:t={t}')
+        epsilon_t_t_1[:, [t]] = eps
+        # print(f'this is eta: {eta[:, [t-1]]}for period:t={t}')
+        tmp = np.multiply(eta[:, [t - 1]], eps)
+        # print(f'this is tmp:{tmp}for period:t={t}')
+        epsilon_t_t[:, [t]] = tmp / tmp.sum(axis=0)
+    return epsilon_t_t_1, epsilon_t_t
 
-    # Dimensions
-    k_regimes = filtered_joint_probabilities.shape[0]
-    nobs = filtered_joint_probabilities.shape[-1]
-    order = filtered_joint_probabilities.ndim - 2
-    dtype = filtered_joint_probabilities.dtype
 
-    # Storage
-    smoothed_joint_probabilities = np.zeros(
-        (k_regimes,) * (order + 1) + (nobs,), dtype=dtype)
-    smoothed_marginal_probabilities = np.zeros((k_regimes, nobs), dtype=dtype)
+def kim(p_hat, epsilon_t_t):
+    """
+    :param p_hat: transition probabilities
+    :param epsilon_t_t: optimal inference from hamilton filter
+    :return:
+    epsilon_t_T smoothed inference
+    epsilon_t_T(2)
+    """
+    vec_p_trans = mo.mat_vec(p_hat.T)
 
-    # S_T, S_{T-1}, ..., S_{T-r} | T
-    smoothed_joint_probabilities[..., -1] = (
-        filtered_joint_probabilities[..., -1])
+    # creating empty array to save the values
+    regimes = epsilon_t_t.shape[0]
+    t_dimension = epsilon_t_t.shape[1]
+    epsilon_t_t_upper = np.zeros([regimes, t_dimension])
+    epsilon_t_t_upper_2 = np.zeros([regimes * regimes, t_dimension])
 
-    # Reshape transition so we can use broadcasting
-    shape = (k_regimes, k_regimes)
-    shape += (1,) * (order)
-    shape += (regime_transition.shape[-1],)
-    regime_transition = np.reshape(regime_transition, shape)
+    epsilon_t_t_upper[:, [-1]] = epsilon_t_t[:, [-1]]
 
-    # Get appropriate subset of transition matrix
-    if regime_transition.shape[-1] == nobs + order:
-        regime_transition = regime_transition[..., order:]
+    # iteration for smoothed inference
+    for t in range(epsilon_t_t.shape[1] - 2, -1, -1):
+        inner = np.divide(epsilon_t_t_upper[:, [t + 1]], p_hat @ epsilon_t_t[:, [t]])
+        outer = (p_hat.T @ inner)
+        epsilon_t_t_upper[:, [t]] = outer * epsilon_t_t[:, [t]]
 
-    # Kim smoother iterations
-    transition_t = 0
-    for t in range(nobs - 2, -1, -1):
-        if regime_transition.shape[-1] > 1:
-            transition_t = t + 1
+    # iteration for epsilon_t_T(2)
+    for t in range(0, epsilon_t_t.shape[1] - 2):  # 0,...,T-1
+        inner = np.divide(epsilon_t_t_upper[:, [t + 1]], p_hat @ epsilon_t_t[:, [t]])
+        outer = np.kron(inner, epsilon_t_t[:, [t]])
+        epsilon_t_t_upper_2[:, [t]] = vec_p_trans * outer
 
-        # S_{t+1}, S_t, ..., S_{t-r+1} | t
-        # x = predicted_joint_probabilities[..., t]
-        x = (filtered_joint_probabilities[..., t] *
-             regime_transition[..., transition_t])
-        # S_{t+1}, S_t, ..., S_{t-r+2} | T / S_{t+1}, S_t, ..., S_{t-r+2} | t
-        y = (smoothed_joint_probabilities[..., t + 1] /
-             predicted_joint_probabilities[..., t + 1])
-        # S_t, S_{t-1}, ..., S_{t-r+1} | T
-        smoothed_joint_probabilities[..., t] = (x * y[..., None]).sum(axis=0)
-
-    # Get smoothed marginal probabilities S_t | T by integrating out
-    # S_{t-k+1}, S_{t-k+2}, ..., S_{t-1}
-    smoothed_marginal_probabilities = smoothed_joint_probabilities
-    for i in range(1, smoothed_marginal_probabilities.ndim - 1):
-        smoothed_marginal_probabilities = np.sum(
-            smoothed_marginal_probabilities, axis=-2)
-
-    return smoothed_joint_probabilities, smoothed_marginal_probabilities
+    return epsilon_t_t_upper, epsilon_t_t_upper_2
 
 
 class Expectation:
     def __init__(self, p, theta, sigmas, e_0, regimes):
-        self.eta_t_T2 = None
-        self.eta_t_T = None
+        self.epsilon_t_T2 = None
+        self.epsilon_t_T = None
         self.eta_t = None
         self.regimes = regimes
         self.p = p
         self.theta = theta
         self.sigmas = sigmas
         self.e_o = e_0
+        self.result = None
 
     def conditional_likelihoods(self, z_t_1, delta_y_t):
         t_len = delta_y_t.shape[-1]
@@ -113,10 +91,8 @@ class Expectation:
 
     def run_expectation(self, z_t_1, delta_y_t):
         self.conditional_likelihoods(z_t_1, delta_y_t)
-        result = ms.cy_hamilton_filter_log(self.e_o, self.p, self.eta_t, 0)
-        predicted_joint_probabilities = result[1]
-        filtered_joint_probabilities = result[3]
-        result2 = py_kim_smoother(self.p, predicted_joint_probabilities, filtered_joint_probabilities)
-        self.eta_t_T = result2[0]
-        self.eta_t_T2 = result2[1]
-        print(self.eta_t_T[:, 1:5])
+        epsilon_t_t_1, epsilon_t_t = hamilton(self.eta_t, self.p, self.e_o)
+        result2 = kim(self.p, epsilon_t_t)
+        self.epsilon_t_T = result2[0]
+        self.epsilon_t_T2 = result2[1]
+        self.result = result2

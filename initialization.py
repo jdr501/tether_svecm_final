@@ -92,8 +92,9 @@ class Initializes:
 
     def other_initial_params(self):
         self.lamda_m = np.identity(self.k)
-        self.e_0_0 = np.ones([self.regimes, ])
-        self.p = np.ones([self.regimes, self.regimes, 1]) / self.regimes
+        self.e_0_0 = np.ones([self.regimes, 1])/self.regimes
+        print(f'this is e_0_0:{self.e_0_0}')
+        self.p = np.ones([self.regimes, self.regimes]) / self.regimes
         print('--------')
         print(self.p)
         sigmas = []
