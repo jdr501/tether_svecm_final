@@ -102,6 +102,8 @@ class Optimization:
 
                 )
             else:
+                #print(f'this is determinant {np.linalg.det(lam_m[regime - 1])}')
+                #print(f'this is log determinant{np.log(np.linalg.det(lam_m[regime - 1]))}')
                 sum_likelihoods = sum_likelihoods + \
                                   self.t_m[regime] / 2 * \
                                   np.log(np.linalg.det(
@@ -125,14 +127,14 @@ class Optimization:
             if i > self.k * self.k - 1:
                 lower_bound.append(0.01)  # lower bound for lambda
             else:
-                lower_bound.append(-1000)  # lower bound for B
-            upper_bound.append(1000)  # upper bound
+                lower_bound.append(-10000)  # lower bound for B
+            upper_bound.append(10000)  # upper bound
         bounds = Bounds(lower_bound, upper_bound)
 
         # Numerical Optimization
-        self.result = mn(self.likelihood, x0, bounds=bounds, method='Nelder-Mead',
+        self.result = mn(self.likelihood, x0, bounds=bounds, method='COBYLA',
                          options={'maxiter': 15000, 'disp': False})  #
-        print(self.result)
+        print(self.result['x'])
 
         # B^hat matrix estimate
         self.b_hat_matrix = self.result['x'][0:self.k * self.k].reshape(self.k, self.k).T
@@ -172,6 +174,7 @@ class Optimization:
         theta_hat = denominator @ numerator
         self.theta_hat = theta_hat.reshape([-1, 1])
    """
+
     def estimate_theta_hat(self, zt_1, delta_yt):
         # Denominator for the estimate of theta hat
         msum = 0

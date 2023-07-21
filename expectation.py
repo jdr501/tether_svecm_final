@@ -75,6 +75,7 @@ class Expectation:
         self.sigmas = sigmas
         self.e_o = e_0
         self.result = None
+        self.likelihood = None
 
     def conditional_likelihoods(self, z_t_1, delta_y_t):
         t_len = delta_y_t.shape[-1]
@@ -89,6 +90,13 @@ class Expectation:
                                    np.exp(-0.5 * u.T @ np.linalg.pinv(self.sigmas[regime]) @ u)
         self.eta_t = eta_t
 
+    def convergence(self, epsilon_t_t_1):
+        lt_sum = 0
+        for t in range(1, epsilon_t_t_1.shape[1]):
+            lt_sum = lt_sum + np.log(epsilon_t_t_1[:, [t]].T @ self.eta_t[:, [t-1]])
+
+        self.likelihood = lt_sum
+
     def run_expectation(self, z_t_1, delta_y_t):
         self.conditional_likelihoods(z_t_1, delta_y_t)
         epsilon_t_t_1, epsilon_t_t = hamilton(self.eta_t, self.p, self.e_o)
@@ -96,3 +104,4 @@ class Expectation:
         self.epsilon_t_T = result2[0]
         self.epsilon_t_T2 = result2[1]
         self.result = result2
+        self.convergence(epsilon_t_t_1)
