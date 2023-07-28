@@ -102,8 +102,8 @@ class Optimization:
 
                 )
             else:
-                #print(f'this is determinant {np.linalg.det(lam_m[regime - 1])}')
-                #print(f'this is log determinant{np.log(np.linalg.det(lam_m[regime - 1]))}')
+                # print(f'this is determinant {np.linalg.det(lam_m[regime - 1])}')
+                # print(f'this is log determinant{np.log(np.linalg.det(lam_m[regime - 1]))}')
                 sum_likelihoods = sum_likelihoods + \
                                   self.t_m[regime] / 2 * \
                                   np.log(np.linalg.det(
@@ -113,6 +113,27 @@ class Optimization:
                                                                            self.vec_sum[regime])
 
         return sum_likelihoods
+
+    def jacobian(self, x, constant):
+        """
+        x: is the variable with respect to p
+        :return: returns the vector value values of jacobian for a given
+        """
+
+        b = mo.vec_matrix(x[0:self.k ** 2], r=self.k, c=self.k)
+        lam_m = self.lam_m_hat
+        start = self.k * self.k
+        for m in range(self.regimes - 1):
+            end = start + self.k
+            lam_m[m] = mo.replace_diagonal(self.result['x'][start:end])
+            start = end
+        b_inv_t = np.linalg.pinv(b).T
+        result1 = self.t_dimension @ b_inv_t
+        jacobi = mo.mat_vec(result1)
+
+
+
+
 
     def optimization(self, x0):
         print('tabulating initial params')
