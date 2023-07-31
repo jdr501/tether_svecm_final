@@ -115,10 +115,13 @@ class Optimization:
         return sum_likelihoods
 
     def jacobian(self, x, constant):
+
         """
         x: is the variable with respect to p
         :return: returns the vector value values of jacobian for a given
         """
+        if any in constant is None :
+            warnings.warn('Something is wrong! has not provided all the constant parameters')
 
         b = mo.vec_matrix(x[0:self.k ** 2], r=self.k, c=self.k)
         lam_m = self.lam_m_hat
@@ -127,8 +130,16 @@ class Optimization:
             end = start + self.k
             lam_m[m] = mo.replace_diagonal(self.result['x'][start:end])
             start = end
-        b_inv_t = np.linalg.pinv(b).T
-        result1 = self.t_dimension @ b_inv_t
+        # constant parameters
+        t_sum = constant[0]  ## Upper case T from notes
+        u = constant[1]   ## Set of U sum for m = 0 ..M
+        b_inv = np.linalg.pinv(b)
+        b_inv_t = b_inv.T
+        result1 = self.t_dimension @ b_inv_t - b_inv_t @  b_inv @ u[0]  @ b_inv_t
+        sum = 0
+        for m in range(1, self.regimes):
+            sum = sum + b_inv_t @ np.linalg.pinv(lam_m[m-1])  @ b_inv u[m] @ b_inv_t
+
         jacobi = mo.mat_vec(result1)
 
 
