@@ -114,37 +114,45 @@ class Optimization:
 
         return sum_likelihoods
 
-    def jacobian(self, x, constant):
-
+    def jacobian(self, x):
         """
         x: is the variable with respect to p
         :return: returns the vector value values of jacobian for a given
         """
-        if any in constant is None :
-            warnings.warn('Something is wrong! has not provided all the constant parameters')
-
         b = mo.vec_matrix(x[0:self.k ** 2], r=self.k, c=self.k)
-        lam_m = self.lam_m_hat
+        lam_m = []
+        for m in range(self.regimes - 1):
+            lam_m.append(np.zeros([self.k, self.k]))
+
         start = self.k * self.k
         for m in range(self.regimes - 1):
             end = start + self.k
             lam_m[m] = mo.replace_diagonal(self.result['x'][start:end])
             start = end
         # constant parameters
-        t_sum = constant[0]  ## Upper case T from notes
-        u = constant[1]   ## Set of U sum for m = 0 ..M
+        t_sum = self.t_m  ## Upper case T from notes
+        u = self.vec_sum  ## Set of U sum for m = 0 ..M
         b_inv = np.linalg.pinv(b)
         b_inv_t = b_inv.T
-        result1 = self.t_dimension @ b_inv_t - b_inv_t @  b_inv @ u[0]  @ b_inv_t
-        sum = 0
+        result1 = self.t_dimension @ b_inv_t - b_inv_t @ b_inv @ u[0] @ b_inv_t
+        total = 0
+        lam_m_inv = []
         for m in range(1, self.regimes):
-            sum = sum + b_inv_t @ np.linalg.pinv(lam_m[m-1])  @ b_inv u[m] @ b_inv_t
-
+            lam_inv = np.linalg.pinv(lam_m[m - 1])
+            lam_m_inv.append(lam_inv)
+            total += b_inv_t @ lam_inv @ b_inv @ u[m] @ b_inv_t
+        result1 = result1 - total
         jacobi = mo.mat_vec(result1)
-
-
-
-
+        for m in range(1, self.regimes):
+            temp = t_sum[m - 1] / 2 @ lam_m_inv[m - 1] - \
+                   0.5 * lam_m_inv[m - 1] @ b_inv @ u[m] @ \
+                   b_inv_t @ lam_m_inv[m - 1] @ \
+                   u[m] @ b_inv_t @ \
+                   np.linalg.pinv(u[m] @ b_inv_t)
+            temp2 = mo.mat_vec(temp)
+            for i in temp2:
+                jacobi.append(i)
+        return jacobi
 
     def optimization(self, x0):
         print('tabulating initial params')
@@ -164,7 +172,7 @@ class Optimization:
         bounds = Bounds(lower_bound, upper_bound)
 
         # Numerical Optimization
-        self.result = mn(self.likelihood, x0, bounds=bounds, method='COBYLA',
+        self.result = mn(self.likelihood, x0, bounds=bounds, method='L-BFGS-B', jac=self.jacobian,
                          options={'maxiter': 15000, 'disp': False})  #
         print(self.result['x'])
 
