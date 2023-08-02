@@ -173,7 +173,7 @@ class Optimization:
         bounds = Bounds(lower_bound, upper_bound)
 
         # Numerical Optimization
-        self.result = mn(self.likelihood, x0, bounds=bounds, method='TNC', jac=None,
+        self.result = mn(self.likelihood, x0, bounds=bounds, method='COBYLA', jac=self.jacobian, tol = 1E-6,
                          options={'maxiter': 15000, 'disp': False})  #
         print(self.result['x'])
 
