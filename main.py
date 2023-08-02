@@ -93,7 +93,7 @@ def draw(b0):
             print(opt.theta_hat)
         i = i + 1
 
-    temp = {'likelihood_values': likelihood_values[2:], 'epsilon_t_T': expect.epsilon_t_T,
+    temp = {'likelihood_values': likelihood_values[2:], 'epsilon_t_T': expect.epsilon_t_T.tolist(),
             'likelihood': likelihood_values[-1]}
     return temp
 
@@ -111,7 +111,6 @@ json.dump(results, codecs.open(file_path, 'w', encoding='utf-8'),
           separators=(',', ':'),
           sort_keys=True,
           indent=4)
-
 
 #with open("results.json", "w") as outfile:
     #json.dump(results, outfile, sort_keys=True, indent=4)
