@@ -8,6 +8,7 @@ import data
 import numpy as np
 import matplotlib.pyplot as plt
 import json
+import codecs
 
 lag_ = 1
 regimes_ = 2
@@ -104,8 +105,16 @@ with multiprocessing.Pool() as pool:
         results.update({f'{d}': result})
         d += 1
 
-with open("results.json", "w") as outfile:
-    json.dump(results, outfile, sort_keys=True, indent=4)
+file_path = "/results.json"
+
+json.dump(results, codecs.open(file_path, 'w', encoding='utf-8'),
+          separators=(',', ':'),
+          sort_keys=True,
+          indent=4)
+
+
+#with open("results.json", "w") as outfile:
+    #json.dump(results, outfile, sort_keys=True, indent=4)
 """ 
 print(likelihood_values[2:])
 plt.figure()
