@@ -74,7 +74,7 @@ def draw(b0):
             print(expect.epsilon_t_T[:, [0]])
             p_hat = mo.vec_matrix(opt.p, r=opt.regimes, c=opt.regimes).T
             print(f'phat:{p_hat}')
-            expect = expectation.Expectation(p_hat, opt.theta_hat, opt.sigma_hat, expect.epsilon_t_T[:, [0]], regimes_)
+            expect = expectation.Expectation(p_hat, opt.theta_hat, opt.sigma_hat, expect.epsilon_t_T[:, [-1]], regimes_)
             expect.run_expectation(initial.z_t_1, initial.delta_y_t)
             likelihood_values.append(expect.likelihood[0][0])
 
